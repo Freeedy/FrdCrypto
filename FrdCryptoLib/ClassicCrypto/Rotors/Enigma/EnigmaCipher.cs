@@ -4,15 +4,17 @@ using System.Collections.Generic;
 using System.Text;
 
 namespace FrdCryptoLib.ClassicCrypto.Rotors.Enigma
-{
-    public class EnigmaCipher 
+{/// <summary>
+/// Add CustomReflectors 
+/// </summary>
+    public class EnigmaCipher
     {
         private EnigmaRotor rotor1;
         private EnigmaRotor rotor2;
         private EnigmaRotor rotor3;
         private EnigmaPlugboard plugboard;
 
-        public EnigmaCipher(string rotor1Wiring, string rotor2Wiring, string rotor3Wiring)
+        public EnigmaCipher(byte[] rotor1Wiring, byte[] rotor2Wiring, byte[] rotor3Wiring)
         {
             rotor1 = new EnigmaRotor(rotor1Wiring);
             rotor2 = new EnigmaRotor(rotor2Wiring);
@@ -27,96 +29,102 @@ namespace FrdCryptoLib.ClassicCrypto.Rotors.Enigma
             rotor3.SetPosition(position3);
         }
 
-        public void AddPlugboardConnection(char from, char to)
+        public void AddPlugboardConnection(byte from, byte to)
         {
             plugboard.AddPlug(from, to);
         }
 
 
 
-        public char Process(char input)
+        public byte Process(byte input)
         {
-            char processedChar = char.ToUpper(input);
+            byte processedByte = input;
 
             // Pass through the plugboard
-            processedChar = plugboard.Process(processedChar);
+            processedByte = plugboard.Process(processedByte);
 
             // Pass through the rotors in forward direction
-            processedChar = rotor3.ProcessForward(processedChar);
-            processedChar = rotor2.ProcessForward(processedChar);
-            processedChar = rotor1.ProcessForward(processedChar);
+            processedByte = rotor3.ProcessForward(processedByte);
+            processedByte = rotor2.ProcessForward(processedByte);
+            processedByte = rotor1.ProcessForward(processedByte);
 
             // Pass through the reflector
             // Note: In this example, the reflector is fixed and symmetric.
             // You can use a custom reflector for different implementations.
             // For the real Enigma machine, the reflector was not symmetric.
             // However, for simplicity, we use a symmetric reflector here.
-            processedChar = ReflectorB.Process(processedChar);
+            processedByte = ReflectorB.Process(processedByte);
 
             // Pass through the rotors in backward direction
-            processedChar = rotor1.ProcessBackward(processedChar);
-            processedChar = rotor2.ProcessBackward(processedChar);
-            processedChar = rotor3.ProcessBackward(processedChar);
+            processedByte = rotor1.ProcessBackward(processedByte);
+            processedByte = rotor2.ProcessBackward(processedByte);
+            processedByte = rotor3.ProcessBackward(processedByte);
 
             // Pass through the plugboard again
-            processedChar = plugboard.Process(processedChar);
+            processedByte = plugboard.Process(processedByte);
 
             // Rotate the rotors
             rotor1.Rotate();
-            if (rotor1.position == rotor1.wiring.IndexOf('Q'))
+            if (rotor1.position == rotor1.wiring.Length - 1)
             {
                 rotor2.Rotate();
-                if (rotor2.position == rotor2.wiring.IndexOf('E'))
+                if (rotor2.position == rotor2.wiring.Length - 1)
                 {
                     rotor3.Rotate();
                 }
             }
 
-            return processedChar;
+            return processedByte;
         }
-
         // Fixed symmetric reflector 'B' used in this example
         private static class ReflectorB
         {
-            private static readonly string wiring = "YRUHQSLDPXNGOKMIEBFZCWVJAT";
-
-            public static char Process(char input)
+            private static readonly byte[] wiring =
+             {
+                0x59, 0x52, 0x55, 0x48,
+                0x51, 0x53, 0x4C, 0x44,
+                0x50, 0x58, 0x4E, 0x47,
+                0x4F, 0x57, 0x59, 0x48,
+                0x58, 0x55, 0x53, 0x50,
+                0x41, 0x49, 0x42, 0x52,
+                0x43, 0x4A
+            };
+            public static byte Process(byte input)
             {
-                int index = input - 'A';
+                int index = input % wiring.Length;
                 return wiring[index];
             }
         }
 
-        public string Encrypt(string message)
+        public byte[] Encrypt(byte[] data)
         {
-            char[] encryptedChars = new char[message.Length];
-            for (int i = 0; i < message.Length; i++)
+            byte[] encryptedData = new byte[data.Length];
+            for (int i = 0; i < data.Length; i++)
             {
-                encryptedChars[i] = Process(message[i]);
+                encryptedData[i] = Process(data[i]);
             }
-            return new string(encryptedChars);
+            return encryptedData;
         }
 
-        public string Decrypt(string message)
+        public byte[] Decrypt(byte[] data)
         {
-            // To decrypt, we need to reset rotor positions to the starting position
             SetRotorPositions(0, 0, 0);
 
-            char[] decryptedChars = new char[message.Length];
-            for (int i = 0; i < message.Length; i++)
+            byte[] decryptedData = new byte[data.Length];
+            for (int i = 0; i < data.Length; i++)
             {
-                decryptedChars[i] = Process(message[i]);
+                decryptedData[i] = Process(data[i]);
             }
-            return new string(decryptedChars);
+            return decryptedData;
         }
     }
 
     public class EnigmaRotor
     {
-        public string wiring;
+        public byte[] wiring;
         public int position;
 
-        public EnigmaRotor(string wiring)
+        public EnigmaRotor(byte[] wiring)
         {
             this.wiring = wiring;
             position = 0;
@@ -127,16 +135,16 @@ namespace FrdCryptoLib.ClassicCrypto.Rotors.Enigma
             this.position = (position + wiring.Length) % wiring.Length;
         }
 
-        public char ProcessForward(char input)
+        public byte ProcessForward(byte input)
         {
-            int index = (input - 'A' + position) % 26;
+            int index = (input + position) % wiring.Length;
             return wiring[index];
         }
 
-        public char ProcessBackward(char input)
+        public byte ProcessBackward(byte input)
         {
-            int index = (wiring.IndexOf(input) - position + wiring.Length) % 26;
-            return (char)('A' + index);
+            int index = (Array.IndexOf(wiring, input) - position + wiring.Length) % wiring.Length;
+            return wiring[index];
         }
 
         public void Rotate()
@@ -146,28 +154,31 @@ namespace FrdCryptoLib.ClassicCrypto.Rotors.Enigma
     }
 
 
+
     public class EnigmaPlugboard
     {
-        private Dictionary<char, char> mapping;
+        private Dictionary<byte, byte> mapping;
 
         public EnigmaPlugboard()
         {
-            mapping = new Dictionary<char, char>();
+            mapping = new Dictionary<byte, byte>();
         }
 
-        public void AddPlug(char from, char to)
+        public void AddPlug(byte from, byte to)
         {
             mapping[from] = to;
             mapping[to] = from;
         }
 
-        public char Process(char input)
+        public byte Process(byte input)
         {
-            if (mapping.TryGetValue(input, out char output))
+            if (mapping.TryGetValue(input, out byte output))
                 return output;
             return input;
         }
     }
+
+
 
 
 }
